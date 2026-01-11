@@ -8,16 +8,16 @@ echo "=========================================="
 echo "Setting up MuJoCo and related packages"
 echo "=========================================="
 
-# # Make sure we're in the diffuser environment
-# if [[ "$CONDA_DEFAULT_ENV" != "diffuser" ]]; then
-#     echo "Error: Please activate the diffuser environment first:"
-#     echo "  conda activate diffuser"
-#     exit 1
-# fi
+# Make sure we're in the diffuser environment
+if [[ "$CONDA_DEFAULT_ENV" != "diffuser" ]]; then
+    echo "Error: Please activate the diffuser environment first:"
+    echo "  conda activate diffuser"
+    exit 1
+fi
 
 # Step 1: Install MuJoCo
 echo ""
-echo "Step 1/6: Installing MuJoCo 2.1.0 (free version)..."
+echo "Step 1/5: Installing MuJoCo 2.1.0 (free version)..."
 mkdir -p ~/.mujoco
 cd ~/.mujoco
 
@@ -34,21 +34,21 @@ fi
 
 # Step 2: Set environment variables
 echo ""
-echo "Step 2/6: Setting up environment variables..."
+echo "Step 2/5: Setting up environment variables..."
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/.mujoco/mujoco210/bin
 export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco210
 echo "✓ Environment variables set"
 
 # Step 3: Install mujoco-py
 echo ""
-echo "Step 3/6: Installing mujoco-py..."
+echo "Step 3/5: Installing mujoco-py..."
 # mujoco-py 2.1.x works with MuJoCo 2.1.0 and doesn't require a license
 pip install mujoco-py==2.1.2.14
 echo "✓ mujoco-py installed"
 
 # Step 4: Install doodad
 echo ""
-echo "Step 4/6: Installing doodad..."
+echo "Step 4/5: Installing doodad..."
 TEMP_DIR=$(mktemp -d)
 cd "$TEMP_DIR"
 git clone https://github.com/JannerM/doodad.git
@@ -59,7 +59,7 @@ echo "✓ doodad installed"
 
 # Step 5: Install d4rl
 echo ""
-echo "Step 5/6: Installing d4rl..."
+echo "Step 5/5: Installing d4rl..."
 cd "$TEMP_DIR"
 git clone https://github.com/Farama-Foundation/d4rl.git
 cd d4rl
@@ -70,13 +70,6 @@ git checkout f2a05c0d66722499bf8031b094d9af3aea7c372b
 
 pip install -e . --no-deps
 echo "✓ d4rl installed"
-
-# Step 6: Install additional d4rl dependencies
-echo ""
-echo "Step 6/6: Installing additional dependencies..."
-pip install h5py dm_control termcolor pybullet
-pip install git+https://github.com/aravindr93/mjrl@master#egg=mjrl
-echo "✓ Additional dependencies installed"
 
 # Verify installations
 echo ""
