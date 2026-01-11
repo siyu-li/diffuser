@@ -1,5 +1,4 @@
 import diffuser.utils as utils
-import pdb
 
 
 #-----------------------------------------------------------------------------#
@@ -7,8 +6,8 @@ import pdb
 #-----------------------------------------------------------------------------#
 
 class Parser(utils.Parser):
-    dataset: str = 'maze2d-large-v1'
-    config: str = 'config.maze2d'
+    dataset: str = 'hopper-medium-expert-v2'
+    config: str = 'config.locomotion'
 
 args = Parser().parse_args('diffusion')
 
@@ -52,6 +51,7 @@ model_config = utils.Config(
     transition_dim=observation_dim + action_dim,
     cond_dim=observation_dim,
     dim_mults=args.dim_mults,
+    attention=args.attention,
     device=args.device,
 )
 
@@ -86,7 +86,6 @@ trainer_config = utils.Config(
     results_folder=args.savepath,
     bucket=args.bucket,
     n_reference=args.n_reference,
-    n_samples=args.n_samples,
 )
 
 #-----------------------------------------------------------------------------#

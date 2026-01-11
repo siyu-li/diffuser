@@ -51,7 +51,6 @@ class Trainer(object):
         save_parallel=False,
         results_folder='./results',
         n_reference=8,
-        n_samples=2,
         bucket=None,
     ):
         super().__init__()
@@ -83,7 +82,6 @@ class Trainer(object):
         self.logdir = results_folder
         self.bucket = bucket
         self.n_reference = n_reference
-        self.n_samples = n_samples
 
         self.reset_parameters()
         self.step = 0
@@ -125,13 +123,13 @@ class Trainer(object):
 
             if self.step % self.log_freq == 0:
                 infos_str = ' | '.join([f'{key}: {val:8.4f}' for key, val in infos.items()])
-                print(f'{self.step}: {loss:8.4f} | {infos_str} | t: {timer():8.4f}')
+                print(f'{self.step}: {loss:8.4f} | {infos_str} | t: {timer():8.4f}', flush=True)
 
             if self.step == 0 and self.sample_freq:
                 self.render_reference(self.n_reference)
 
             if self.sample_freq and self.step % self.sample_freq == 0:
-                self.render_samples(n_samples=self.n_samples)
+                self.render_samples()
 
             self.step += 1
 
@@ -147,7 +145,7 @@ class Trainer(object):
         }
         savepath = os.path.join(self.logdir, f'state_{epoch}.pt')
         torch.save(data, savepath)
-        print(f'[ utils/training ] Saved model to {savepath}')
+        print(f'[ utils/training ] Saved model to {savepath}', flush=True)
         if self.bucket is not None:
             sync_logs(self.logdir, bucket=self.bucket, background=self.save_parallel)
 
@@ -186,15 +184,6 @@ class Trainer(object):
         normed_observations = trajectories[:, :, self.dataset.action_dim:]
         observations = self.dataset.normalizer.unnormalize(normed_observations, 'observations')
 
-        # from diffusion.datasets.preprocessing import blocks_cumsum_quat
-        # # observations = conditions + blocks_cumsum_quat(deltas)
-        # observations = conditions + deltas.cumsum(axis=1)
-
-        #### @TODO: remove block-stacking specific stuff
-        # from diffusion.datasets.preprocessing import blocks_euler_to_quat, blocks_add_kuka
-        # observations = blocks_add_kuka(observations)
-        ####
-
         savepath = os.path.join(self.logdir, f'_sample-reference.png')
         self.renderer.composite(savepath, observations)
 
@@ -216,18 +205,14 @@ class Trainer(object):
             )
 
             ## [ n_samples x horizon x (action_dim + observation_dim) ]
-            samples = self.ema_model.conditional_sample(conditions)
-            samples = to_np(samples)
+            samples = self.ema_model(conditions)
+            trajectories = to_np(samples.trajectories)
 
             ## [ n_samples x horizon x observation_dim ]
-            normed_observations = samples[:, :, self.dataset.action_dim:]
+            normed_observations = trajectories[:, :, self.dataset.action_dim:]
 
             # [ 1 x 1 x observation_dim ]
             normed_conditions = to_np(batch.conditions[0])[:,None]
-
-            # from diffusion.datasets.preprocessing import blocks_cumsum_quat
-            # observations = conditions + blocks_cumsum_quat(deltas)
-            # observations = conditions + deltas.cumsum(axis=1)
 
             ## [ n_samples x (horizon + 1) x observation_dim ]
             normed_observations = np.concatenate([
@@ -237,11 +222,6 @@ class Trainer(object):
 
             ## [ n_samples x (horizon + 1) x observation_dim ]
             observations = self.dataset.normalizer.unnormalize(normed_observations, 'observations')
-
-            #### @TODO: remove block-stacking specific stuff
-            # from diffusion.datasets.preprocessing import blocks_euler_to_quat, blocks_add_kuka
-            # observations = blocks_add_kuka(observations)
-            ####
 
             savepath = os.path.join(self.logdir, f'sample-{self.step}-{i}.png')
             self.renderer.composite(savepath, observations)
