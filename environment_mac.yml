@@ -1,4 +1,4 @@
-name: diffuser
+name: diffuser-mac
 channels:
 - defaults
 - conda-forge
@@ -9,10 +9,10 @@ dependencies:
 - wheel=0.37.1
 - patchelf
 - pip:
-    - -f https://download.pytorch.org/whl/torch_stable.html
     - Cython<3.0
     - numpy
-    - torch==1.9.1+cu111
+    - torch==1.9.1
+    - torchvision==0.10.1
     - gym==0.18.0
     - matplotlib==3.3.4
     - typed-argument-parser
@@ -24,12 +24,12 @@ dependencies:
     - pillow
     - tqdm
     - pandas
-    - wandb
+    - wandb==0.12.21
+    - protobuf==3.20.0
     - flax>=0.3.5
-    - jax<=0.2.21
+    - jax==0.2.21
     - ray==2.0.0
     - crcmod
     - google-api-python-client
     - cryptography
     - gdown
-   

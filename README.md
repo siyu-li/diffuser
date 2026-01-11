@@ -16,8 +16,17 @@ ssss
 ## Installation
 
 ```
+# Step 1: Create conda environment
 conda env create -f environment.yml
-conda activate diffusion
+
+# Step 2: Activate it
+conda activate diffuser
+
+# Step 3: Run the setup script (now includes all packages!)
+chmod +x setup_mujoco_and_packages.sh
+./setup_mujoco_and_packages.sh
+
+# Step 4: Install diffuser package itself
 pip install -e .
 ```
 
