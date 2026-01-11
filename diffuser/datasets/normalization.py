@@ -25,6 +25,8 @@ class DatasetNormalizer:
                 self.normalizers[key] = normalizer(val)
             except:
                 print(f'[ utils/normalization ] Skipping {key} | {normalizer}')
+            # key: normalizer(val)
+            # for key, val in dataset.items()
 
     def __repr__(self):
         string = ''
@@ -40,9 +42,6 @@ class DatasetNormalizer:
 
     def unnormalize(self, x, key):
         return self.normalizers[key].unnormalize(x)
-
-    def get_field_normalizers(self):
-        return self.normalizers
 
 def flatten(dataset, path_lengths):
     '''

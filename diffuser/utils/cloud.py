@@ -2,7 +2,6 @@ import shlex
 import subprocess
 import pdb
 
-
 def sync_logs(logdir, bucket, background=False):
 	## remove prefix 'logs' on google cloud
 	destination = 'logs' + logdir.split('logs')[-1]
