@@ -9,6 +9,13 @@ from contextlib import (
     redirect_stderr,
     redirect_stdout,
 )
+# load_environment(): Loads gym environments
+# get_dataset(): Gets D4RL offline datasets
+# sequence_dataset(): Converts to episodic format
+# What to do: CREATE YOUR OWN version that loads your two-robot dataset
+# Keep the same interface: return dict with observations, actions, rewards, terminals, timeouts
+# Replace D4RL-specific loading with your custom data loader
+
 
 @contextmanager
 def suppress_output():
