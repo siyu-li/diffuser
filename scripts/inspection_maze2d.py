@@ -43,10 +43,10 @@ dataset = dataset_config()
 print(f"\nDataset: {args.dataset}")
 print(f"Dataset class: {dataset.__class__.__name__}")
 print(f"Number of episodes: {dataset.n_episodes}")
-print(f"Total timesteps: {dataset.n_steps}")
+print(f"Total timesteps: {dataset.fields.n_steps}")
 print(f"Observation dim: {dataset.observation_dim}")
 print(f"Action dim: {dataset.action_dim}")
-print(f"Transition dim: {dataset.transition_dim}")
+print(f"Transition dim: {dataset.action_dim + dataset.observation_dim}")
 print(f"Horizon: {dataset.horizon}")
 
 #-----------------------------------------------------------------------------#
@@ -60,7 +60,7 @@ print("="*80)
 # Access the underlying fields
 print("\n1. Dataset.fields structure:")
 print(f"   Type: {type(dataset.fields)}")
-print(f"   Keys: {dataset.fields._fields}")
+print(f"   Keys: {dataset.fields.keys}")
 
 print("\n2. Raw observations:")
 print(f"   Shape: {dataset.fields.observations.shape}")
@@ -104,11 +104,13 @@ print("="*80)
 item_idx = 0
 batch_item = dataset[item_idx]
 
-print(f"\n1. Batch item keys:")
-print(f"   {batch_item.keys()}")
+print(f"\n1. Batch item structure:")
+print(f"   Type: {type(batch_item)}")
+print(f"   Fields: {batch_item._fields}")
 
 print(f"\n2. Trajectories:")
-trajectories = batch_item['trajectories']
+trajectories = batch_item.trajectories  # Access namedtuple field directly
+transition_dim = dataset.action_dim + dataset.observation_dim
 print(f"   Shape: {trajectories.shape}")
 print(f"   Type: {type(trajectories)}")
 print(f"   Dtype: {trajectories.dtype}")
@@ -119,43 +121,19 @@ print(f"\n   First 3 timesteps of trajectory:")
 for t in range(min(3, trajectories.shape[0])):
     action_part = trajectories[t, :dataset.action_dim]
     obs_part = trajectories[t, dataset.action_dim:]
-    print(f"   t={t}: action={action_part.numpy()}, observation={obs_part.numpy()}")
+    print(f"   t={t}: action={action_part}, observation={obs_part}")
 
 print(f"\n3. Conditions:")
-conditions = batch_item['conditions']
+conditions = batch_item.conditions  # Access namedtuple field directly
 print(f"   Type: {type(conditions)}")
 print(f"   Keys (timesteps): {list(conditions.keys())}")
 
 for timestep, condition_value in conditions.items():
     print(f"   Condition at t={timestep}:")
     print(f"      Shape: {condition_value.shape}")
-    print(f"      Value: {condition_value.numpy()}")
-    print(f"      Interpretation: Initial state (x, y, ?, ?) in maze")
+    print(f"      Value: {condition_value}")
+    print(f"      Interpretation: Initial state [x_pos, y_pos, x_vel, y_vel]")
 
-#-----------------------------------------------------------------------------#
-#---------------------- inspect multiple batch items -------------------------#
-#-----------------------------------------------------------------------------#
-
-print("\n" + "="*80)
-print("MULTIPLE BATCH ITEMS (Understanding sliding window)")
-print("="*80)
-
-print(f"\nDataset creates sliding windows of horizon={dataset.horizon}")
-print(f"Total indices available: {len(dataset.indices)}")
-print(f"First 10 indices: {dataset.indices[:10]}")
-
-# Show several consecutive items
-print(f"\nShowing 3 consecutive batch items:")
-for i in range(3):
-    item = dataset[i]
-    traj = item['trajectories']
-    cond = item['conditions']
-    
-    print(f"\nBatch item {i}:")
-    print(f"  Trajectory shape: {traj.shape}")
-    print(f"  First observation (t=0): {traj[0, dataset.action_dim:].numpy()}")
-    print(f"  Last observation (t={dataset.horizon-1}): {traj[-1, dataset.action_dim:].numpy()}")
-    print(f"  Condition (start state): {cond[0].numpy()}")
 
 #-----------------------------------------------------------------------------#
 #------------------------- inspect batched data ------------------------------#
@@ -169,19 +147,20 @@ print("="*80)
 batch_size = 4
 batch_items = [dataset[i] for i in range(batch_size)]
 
-# Stack trajectories
-trajectories_batch = torch.stack([item['trajectories'] for item in batch_items], dim=0)
+# Stack trajectories (convert numpy to torch tensors like DataLoader does)
+trajectories_batch = torch.stack([torch.from_numpy(item.trajectories) for item in batch_items], dim=0)
+transition_dim = dataset.action_dim + dataset.observation_dim
 print(f"\n1. Batched trajectories:")
 print(f"   Shape: {trajectories_batch.shape}")
-print(f"   Interpretation: (batch_size={batch_size}, horizon={dataset.horizon}, transition_dim={dataset.transition_dim})")
+print(f"   Interpretation: (batch_size={batch_size}, horizon={dataset.horizon}, transition_dim={transition_dim})")
 
 # Collect conditions
 conditions_batch = {}
 for item in batch_items:
-    for t, cond in item['conditions'].items():
+    for t, cond in item.conditions.items():
         if t not in conditions_batch:
             conditions_batch[t] = []
-        conditions_batch[t].append(cond)
+        conditions_batch[t].append(torch.from_numpy(cond))
 
 for t in conditions_batch:
     conditions_batch[t] = torch.stack(conditions_batch[t], dim=0)
@@ -229,83 +208,3 @@ print(f"\n4. Noisy trajectory (q_sample result):")
 print(f"   x_noisy shape: {x_noisy.shape}")
 print(f"   Interpretation: Original trajectory + noise at timestep t")
 
-#-----------------------------------------------------------------------------#
-#----------------------- maze2d specific visualization -----------------------#
-#-----------------------------------------------------------------------------#
-
-print("\n" + "="*80)
-print("MAZE2D SPECIFIC INTERPRETATION")
-print("="*80)
-
-print("\nFor maze2d navigation:")
-print("  - Observation: [x, y, goal_x, goal_y] - 4D position in maze")
-print("  - Action: [dx, dy] - 2D velocity command")
-print("  - Trajectory: sequence of (action, observation) pairs over horizon")
-print("  - Condition: starting position [x, y, goal_x, goal_y]")
-
-print("\nExample trajectory interpretation:")
-traj = trajectories_batch[0]  # First item in batch
-print(f"  Start state: {traj[0, dataset.action_dim:].numpy()}")
-print(f"  Start action: {traj[0, :dataset.action_dim].numpy()}")
-print(f"  End state: {traj[-1, dataset.action_dim:].numpy()}")
-print(f"  Path length: {dataset.horizon} steps")
-
-#-----------------------------------------------------------------------------#
-#---------------------------- summary diagram --------------------------------#
-#-----------------------------------------------------------------------------#
-
-print("\n" + "="*80)
-print("SUMMARY DIAGRAM")
-print("="*80)
-
-print("""
-DATA FLOW:
-
-1. Raw Dataset (from D4RL):
-   observations: (N, 4)  [all timesteps concatenated]
-   actions: (N, 2)       [all timesteps concatenated]
-   rewards: (N,)
-   
-2. Episodic Segmentation:
-   Episode 1: obs[0:150], actions[0:150], ...
-   Episode 2: obs[150:300], actions[150:300], ...
-   ...
-   
-3. Sliding Window (SequenceDataset):
-   Window 0: [obs[0:32], actions[0:32]]
-   Window 1: [obs[1:33], actions[1:33]]
-   Window 2: [obs[2:34], actions[2:34]]
-   ...
-   
-4. Single Batch Item (dataset[i]):
-   trajectories: (horizon=32, transition_dim=6)
-      - Contains: [action_0, obs_0, action_1, obs_1, ..., action_31, obs_31]
-      - Actually shaped as: [[a0, o0], [a1, o1], ..., [a31, o31]]
-   conditions: {0: (4,)}
-      - Initial state: obs_0
-      
-5. Batched for Training:
-   trajectories: (batch=32, horizon=32, transition_dim=6)
-   conditions: {0: (batch=32, obs_dim=4)}
-   
-6. During Training (inside diffusion.loss()):
-   - Sample random noise: ε ~ N(0, I)
-   - Sample random timestep: t ~ Uniform(0, T-1)
-   - Add noise to trajectories: x_noisy = sqrt(α_t)*x + sqrt(1-α_t)*ε
-   - Model predicts: ε_pred = TemporalUnet(x_noisy, cond, t)
-   - Compute loss: ||ε_pred - ε||²
-   
-7. During Sampling (diffusion.conditional_sample()):
-   - Start with pure noise: x_T ~ N(0, I)
-   - For t = T-1 down to 0:
-       - Predict noise: ε_pred = TemporalUnet(x_t, cond, t)
-       - Remove noise: x_{t-1} = denoise(x_t, ε_pred)
-   - Final x_0 is the generated trajectory
-""")
-
-print("\n" + "="*80)
-print("INSPECTION COMPLETE")
-print("="*80)
-print("\nTo run this script:")
-print("  python scripts/inspect_dataset.py")
-print("\nYou can also enter interactive mode by adding 'pdb.set_trace()' anywhere above.")
