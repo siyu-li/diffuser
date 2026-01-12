@@ -7,11 +7,7 @@ from tap import Tap
 import pdb
 
 from .serialization import mkdir
-from .git_utils import (
-    get_git_rev,
-    save_git_diff,
-)
-
+# Experiment setup
 def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)

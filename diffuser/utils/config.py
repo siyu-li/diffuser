@@ -2,7 +2,8 @@ import os
 import collections
 import importlib
 import pickle
-
+# Dynamic class instantiation from config files
+# Loads hyperparameters from config files
 def import_class(_class):
     if type(_class) is not str: return _class
     ## 'diffusion' on standard installs

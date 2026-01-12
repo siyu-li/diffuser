@@ -5,7 +5,7 @@ import torch
 import pdb
 
 from collections import namedtuple
-
+# Model saving/loading
 DiffusionExperiment = namedtuple('Diffusion', 'dataset renderer model diffusion ema trainer epoch')
 
 def mkdir(savepath):
