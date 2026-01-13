@@ -14,6 +14,13 @@ from .video import save_video, save_videos
 
 from diffuser.datasets.d4rl import load_environment
 
+class DummyRenderer:
+    def __init__(self, env):
+        self.env = env
+    
+    def composite(self, savepath, paths, ncol=5, **kwargs):
+        print(f"[ DummyRenderer ] Skipping visualization")
+        pass
 #-----------------------------------------------------------------------------#
 #------------------------------- helper structs ------------------------------#
 #-----------------------------------------------------------------------------#
