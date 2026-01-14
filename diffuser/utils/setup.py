@@ -146,10 +146,12 @@ class Parser(Tap):
             self.save()
 
     def get_commit(self, args):
-        args.commit = get_git_rev()
+        pass
+    #     args.commit = get_git_rev()
 
     def save_diff(self, args):
-        try:
-            save_git_diff(os.path.join(args.savepath, 'diff.txt'))
-        except:
-            print('[ utils/setup ] WARNING: did not save git diff')
+        pass
+    #     try:
+    #         save_git_diff(os.path.join(args.savepath, 'diff.txt'))
+    #     except:
+    #         print('[ utils/setup ] WARNING: did not save git diff')

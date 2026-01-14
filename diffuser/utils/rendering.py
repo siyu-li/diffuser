@@ -21,6 +21,200 @@ class DummyRenderer:
     def composite(self, savepath, paths, ncol=5, **kwargs):
         print(f"[ DummyRenderer ] Skipping visualization")
         pass
+
+
+class MARLRobotRenderer:
+    """
+    Renderer for multi-robot trajectories.
+    Visualizes robot paths in 2D space where observations are [x, y, theta].
+    """
+    
+    def __init__(self, env='marl', workspace_bounds=None, observation_dim=None):
+        """
+        Args:
+            env: Environment name (not used but kept for compatibility)
+            workspace_bounds: Tuple of (x_min, x_max, y_min, y_max) for the robot workspace
+            observation_dim: Dimension of observations (should be 3 for [x, y, theta])
+        """
+        self.env_name = env if isinstance(env, str) else 'marl'
+        self.observation_dim = observation_dim or 3
+        self.action_dim = 2  # [linear_vel, angular_vel]
+        
+        # Default workspace bounds (can be adjusted based on your data)
+        if workspace_bounds is None:
+            self.workspace_bounds = (0, 12, 0, 12)  # x_min, x_max, y_min, y_max
+        else:
+            self.workspace_bounds = workspace_bounds
+        
+        self._remove_margins = False
+        
+    def renders(self, observations, conditions=None, title=None, show_orientation=True):
+        """
+        Render a single robot trajectory.
+        
+        Args:
+            observations: Array of shape (T, 3) or (T, obs_dim) where first 2 dims are [x, y]
+            conditions: Optional conditioning information (e.g., start/goal positions)
+            title: Optional title for the plot
+            show_orientation: Whether to show robot orientation with arrows
+            
+        Returns:
+            img: RGB image as numpy array
+        """
+        plt.clf()
+        fig = plt.gcf()
+        fig.set_size_inches(8, 8)
+        
+        # Set up the plot
+        x_min, x_max, y_min, y_max = self.workspace_bounds
+        plt.xlim(x_min, x_max)
+        plt.ylim(y_min, y_max)
+        plt.gca().set_aspect('equal', adjustable='box')
+        
+        # Extract x, y positions (first 2 dimensions)
+        x = observations[:, 0]
+        y = observations[:, 1]
+        
+        # Color trajectory by time (blue to red)
+        path_length = len(observations)
+        colors = plt.cm.viridis(np.linspace(0, 1, path_length))
+        
+        # Plot the trajectory path
+        plt.plot(x, y, c='gray', linewidth=2, alpha=0.5, zorder=10)
+        plt.scatter(x, y, c=colors, s=50, zorder=20, edgecolors='black', linewidths=0.5)
+        
+        # Mark start and end positions
+        plt.scatter(x[0], y[0], c='green', s=200, marker='o', 
+                   edgecolors='black', linewidths=2, zorder=30, label='Start')
+        plt.scatter(x[-1], y[-1], c='red', s=200, marker='*', 
+                   edgecolors='black', linewidths=2, zorder=30, label='End')
+        
+        # Show orientation arrows if theta is available
+        if show_orientation and observations.shape[-1] >= 3:
+            theta = observations[:, 2]
+            # Show arrows at regular intervals
+            arrow_interval = max(1, path_length // 10)
+            for i in range(0, path_length, arrow_interval):
+                dx = 0.3 * np.cos(theta[i])
+                dy = 0.3 * np.sin(theta[i])
+                plt.arrow(x[i], y[i], dx, dy, 
+                         head_width=0.2, head_length=0.15,
+                         fc='blue', ec='blue', alpha=0.6, zorder=25)
+        
+        # Add conditioning points if provided
+        if conditions is not None:
+            if isinstance(conditions, dict):
+                if 'start' in conditions:
+                    start = conditions['start']
+                    plt.scatter(start[0], start[1], c='lime', s=150, marker='s',
+                              edgecolors='black', linewidths=2, zorder=35, label='Condition Start')
+                if 'goal' in conditions or 'end' in conditions:
+                    goal = conditions.get('goal', conditions.get('end'))
+                    plt.scatter(goal[0], goal[1], c='orange', s=150, marker='D',
+                              edgecolors='black', linewidths=2, zorder=35, label='Condition Goal')
+        
+        plt.xlabel('X Position', fontsize=12)
+        plt.ylabel('Y Position', fontsize=12)
+        plt.grid(True, alpha=0.3)
+        plt.legend(loc='best')
+        
+        if title:
+            plt.title(title, fontsize=14, fontweight='bold')
+        else:
+            plt.title('Robot Trajectory', fontsize=14, fontweight='bold')
+        
+        # Convert plot to image
+        img = plot2img(fig, remove_margins=self._remove_margins)
+        return img
+    
+    def composite(self, savepath, paths, ncol=5, **kwargs):
+        """
+        Render multiple robot trajectories in a grid.
+        
+        Args:
+            savepath: Path to save the composite image
+            paths: List of trajectory arrays, each of shape (T, obs_dim)
+            ncol: Number of columns in the grid
+            **kwargs: Additional arguments passed to renders()
+        """
+        if len(paths) == 0:
+            print("[ MARLRobotRenderer ] No paths to render")
+            return
+        
+        # Ensure paths is divisible by ncol for clean grid
+        n_paths = len(paths)
+        
+        images = []
+        for i, path in enumerate(paths):
+            # Handle different input formats
+            if isinstance(path, tuple):
+                observations = path[0]
+                kw = path[1] if len(path) > 1 else {}
+            else:
+                observations = path
+                kw = {}
+            
+            # Merge kwargs
+            render_kwargs = {**kwargs, **kw}
+            if 'title' not in render_kwargs:
+                render_kwargs['title'] = f'Sample {i+1}'
+            
+            # Convert to numpy if needed
+            observations = to_np(observations)
+            
+            # Render single trajectory
+            img = self.renders(observations, **render_kwargs)
+            images.append(img)
+        
+        # Stack images into grid
+        images = np.stack(images, axis=0)
+        
+        # Calculate grid dimensions
+        nrow = (n_paths + ncol - 1) // ncol  # Ceiling division
+        
+        # Pad with white images if needed
+        n_missing = nrow * ncol - n_paths
+        if n_missing > 0:
+            white_img = np.ones_like(images[0]) * 255
+            padding = np.stack([white_img] * n_missing, axis=0)
+            images = np.concatenate([images, padding], axis=0)
+        
+        # Rearrange into grid
+        images = einops.rearrange(images,
+            '(nrow ncol) H W C -> (nrow H) (ncol W) C', nrow=nrow, ncol=ncol)
+        
+        if savepath is not None:
+            imageio.imsave(savepath, images)
+            print(f'[ MARLRobotRenderer ] Saved {n_paths} robot trajectories to: {savepath}')
+        
+        return images
+    
+    def render_rollout(self, savepath, observations, fps=10, **kwargs):
+        """
+        Create a video showing the robot moving along the trajectory.
+        
+        Args:
+            savepath: Path to save the video
+            observations: Array of shape (T, obs_dim)
+            fps: Frames per second for the video
+        """
+        observations = to_np(observations)
+        path_length = len(observations)
+        
+        frames = []
+        for t in range(path_length):
+            # Render trajectory up to current timestep
+            partial_obs = observations[:t+1]
+            img = self.renders(partial_obs, 
+                             title=f'Timestep {t+1}/{path_length}',
+                             **kwargs)
+            frames.append(img)
+        
+        save_video(savepath, frames, fps=fps)
+        print(f'[ MARLRobotRenderer ] Saved rollout video to: {savepath}')
+    
+    def __call__(self, *args, **kwargs):
+        return self.renders(*args, **kwargs)
 #-----------------------------------------------------------------------------#
 #------------------------------- helper structs ------------------------------#
 #-----------------------------------------------------------------------------#

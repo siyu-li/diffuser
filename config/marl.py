@@ -9,6 +9,13 @@ diffusion_args_to_watch = [
     ('n_diffusion_steps', 'T'),
 ]
 
+plan_args_to_watch = [
+    ('prefix', ''),
+    ('horizon', 'H'),
+    ('n_diffusion_steps', 'T'),
+    ('batch_size', 'b'),
+]
+
 base = {
     'diffusion': {
         ## model
@@ -21,14 +28,14 @@ base = {
         'loss_discount': 1,
         'predict_epsilon': False,
         'dim_mults': (1, 2, 4),  # Smaller model architecture for smaller dataset
-        'renderer': 'utils.DummyRenderer',  # You may want to create a custom renderer
+        'renderer': 'utils.MARLRobotRenderer',  # Custom renderer for robot trajectories
 
         ## dataset
         'loader': 'datasets.MARLSequenceDataset',
         'buffer_path': 'diffuser/datasets/assets/marl_buffer.pkl',
         'normalizer': 'LimitsNormalizer',
         'use_padding': False,
-        'max_path_length': 1000,
+        'max_path_length': 10000,
         'condition_on_goal': True,  # Condition on both start and end states
         'clip_denoised': True,
         
@@ -40,7 +47,7 @@ base = {
         ## training
         'n_steps_per_epoch': 1000,
         'loss_type': 'l2',
-        'n_train_steps': 10000,  # 200000 steps for smaller dataset
+        'n_train_steps': 200000,  # 200000 steps for smaller dataset
         'batch_size': 32,
         'learning_rate': 2e-4,
         'gradient_accumulate_every': 2,
@@ -53,6 +60,30 @@ base = {
         'n_samples': 4,
         'bucket': None,
         'device': 'cuda',
+    },
+
+    'plan': {
+        'batch_size': 4,
+        'device': 'cuda',
+
+        ## diffusion model
+        'horizon': 32,
+        'n_diffusion_steps': 100,
+        'normalizer': 'LimitsNormalizer',
+
+        ## serialization
+        'vis_freq': 10,
+        'logbase': 'logs',
+        'prefix': 'plans/',
+        'exp_name': watch(plan_args_to_watch),
+        'suffix': '0',
+
+        'conditional': True,
+        'n_samples': 4,
+
+        ## loading
+        'diffusion_loadpath': 'f:diffusion/H{horizon}_T{n_diffusion_steps}',
+        'diffusion_epoch': 'latest',
     },
 }
 
